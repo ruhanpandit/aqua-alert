@@ -10,10 +10,10 @@ const int LCD_PIN_DATA6           = 3;
 const int LCD_PIN_DATA7           = 2;
 
 // Button (connects pin to GND when pressed; uses internal pull-up)
-const int PIN_BUTTON = 7;
+const int PIN_BUTTON = 3;
 
 // Buzzer (active or passive buzzer)
-const int PIN_BUZZER = 8;
+const int PIN_BUZZER = 5;
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const int LCD_COLS = 16;
