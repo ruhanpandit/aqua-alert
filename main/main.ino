@@ -48,7 +48,7 @@ void selectMode() {
 
     // clear lcd to prepare for tracking
     lcd.clear();
-    delay(500);
+    delay(1000);
 }
 
 // reset all variables when returning to mode select
@@ -75,7 +75,7 @@ void setup() {
     lcd.init();
     lcd.backlight();
 
-    delay(500);
+    delay(1000);
     selectMode();
 
     Serial.begin(9600);
@@ -118,7 +118,7 @@ void refill() {
 
     // remove refills if blue button is pressed
     if (refills_left > 0 && digitalRead(BLUE_BUTTON) == HIGH) {
-        delay(200);
+        delay(1000);
         refills_left--;
         lastModeShown = -1;
     }
@@ -140,7 +140,7 @@ void refill() {
 
     // turn off buzzer if user acknowledge buzzer
     if (digitalRead(GREEN_BUTTON) == HIGH && refills_left == 0 && refillShown) {
-        delay(200);
+        delay(1000);
         refills_left = 2;
         refillShown = false;
         shouldBuzz = false;
@@ -149,8 +149,8 @@ void refill() {
     }
 
     // green button goes back to mode select if buzzer is not going off
-    if (digitalRead(GREEN_BUTTON) == HIGH && !shouldBuzz) {
-        delay(200);
+    if (digitalRead(GREEN_BUTTON) == HIGH && !shouldBuzz && lastModeShown == 1) {
+        delay(1000);
         resetState();
         selectMode();
         return;
@@ -190,7 +190,7 @@ void timer() {
 
         // turn off buzzer and reset variables if user acknowledge buzzer
         if (digitalRead(GREEN_BUTTON) == HIGH) {
-            delay(200);
+            delay(1000);
             shouldBuzz = false;
             timerAlarm = false;
             timerStart = millis();
@@ -204,7 +204,7 @@ void timer() {
 
         // green button goes back to mode select if buzzer is not going off
         if (digitalRead(GREEN_BUTTON) == HIGH) {
-            delay(200);
+            delay(1000);
             resetState();
             selectMode();
             return;
