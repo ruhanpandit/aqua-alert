@@ -15,8 +15,15 @@ bool refillShown = false;
 
 // buzzer variables
 bool buzzerOn = false;
+bool shouldBuzz = false;
 unsigned long lastBuzzToggle = 0;
 const unsigned long buzzInterval = 300; // ms
+
+// timer mode variables
+unsigned long timerStart = 0;
+bool timerStarted = false;
+bool timerAlarm = false;
+const unsigned long timerDuration = 300000; // 5 mins in ms
 
 // setup
 void setup() {
@@ -52,7 +59,7 @@ void setup() {
 // method for controlling buzzer in the background
 // on/off/on/off functionality similar to an alarm clock
 void updateBuzzer() {
-    if (refills_left == 0 && refillShown) {
+    if (shouldBuzz) {
         unsigned long now = millis();
         if (now - lastBuzzToggle >= buzzInterval) {
             lastBuzzToggle = now;
@@ -99,12 +106,17 @@ void refill() {
         refillShown = true;
     }
 
+    // activate buzzer when no refills left
+    if (refills_left == 0 && refillShown) {
+        shouldBuzz = true;
+    }
+
     // turn off buzzer if user acknowledge buzzer
     if (digitalRead(GREEN_BUTTON) == HIGH && refills_left == 0 && refillShown) {
         refills_left = 2;
         refillShown = false;
+        shouldBuzz = false;
         lastModeShown = -1;
-        noTone(BUZZER);
     }
 
     // constantly call this function
