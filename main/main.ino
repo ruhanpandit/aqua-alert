@@ -23,7 +23,8 @@ const unsigned long buzzInterval = 300; // ms
 unsigned long timerStart = 0;
 bool timerStarted = false;
 bool timerAlarm = false;
-const unsigned long timerDuration = 300000; // 5 mins in ms
+const unsigned long timerDuration = 10000; // 5 mins in ms
+unsigned long lastDisplayUpdate = 0;
 
 // setup
 void setup() {
@@ -54,6 +55,8 @@ void setup() {
     // clear lcd to prepare for tracking
     lcd.clear();
     delay(500);
+
+    Serial.begin(9600);
 }
 
 // method for controlling buzzer in the background
@@ -66,9 +69,11 @@ void updateBuzzer() {
             buzzerOn = !buzzerOn;
 
             if (buzzerOn) {
-                tone(BUZZER, 1000);
+                //tone(BUZZER, 1000);
+                Serial.println("Buzzer on");
             } else {
-                noTone(BUZZER);
+                //noTone(BUZZER);
+                Serial.println("Buzzer off");
             }
         }
     } else {
@@ -100,7 +105,7 @@ void refill() {
     if (refills_left == 0 && !refillShown) {
         lcd.clear();
         lcd.setCursor(0, 0);
-        lcd.print("REFILL");
+        lcd.print("CLEAN BOTTLE");
         lcd.setCursor(0, 1);
         lcd.print("Press green");
         refillShown = true;
@@ -125,14 +130,83 @@ void refill() {
 }
 
 void timer() {
-    noTone(BUZZER);
-
-    if (lastModeShown != 2) {
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        lcd.print("Timer mode");
-        lastModeShown = 2;
+    // start timer for the first time
+    if (!timerStarted) {
+        timerStart = millis();
+        timerStarted = true;
     }
+
+    // check if timer expired
+    if (!timerAlarm && (millis() - timerStart >= timerDuration)) {
+        timerAlarm = true;
+        lastModeShown = -1;
+    }
+
+    // activate alarm and show message
+    if (timerAlarm) {
+        shouldBuzz = true;
+
+        // only update lcd one time
+        if (lastModeShown != 3) {
+            lcd.clear();
+            lcd.setCursor(0, 0);
+            lcd.print("CLEAN BOTTLE");
+            lcd.setCursor(0, 1);
+            lcd.print("Press green");
+            lastModeShown = 3;
+        }
+
+        // turn off buzzer and reset variables if user acknowledge buzzer
+        if (digitalRead(GREEN_BUTTON) == HIGH) {
+            delay(200);
+            shouldBuzz = false;
+            timerAlarm = false;
+            timerStart = millis();
+            lastModeShown = -1;
+            lastDisplayUpdate = 0;
+        }
+    }
+    // show countdown if no alarm
+    else {
+        shouldBuzz = false;
+
+        // clear lcd when first entering countdown display
+        if (lastModeShown != 2) {
+            lcd.clear();
+            lastModeShown = 2;
+            lastDisplayUpdate = 0; // force display update
+        }
+
+        // calculate time elapsed
+        unsigned long elapsed = millis() - timerStart;
+        unsigned long remaining = (timerDuration - elapsed) / 1000;
+
+        // refresh lcd every 1 second
+        if (millis() - lastDisplayUpdate >= 1000 || lastDisplayUpdate == 0) {
+            lastDisplayUpdate = millis();
+
+            // split remaining seconds into minutes and seconds
+            unsigned int mins = remaining / 60;
+            unsigned int secs = remaining % 60;
+
+            // display countdown in MM:SS format
+            lcd.setCursor(0, 0);
+            lcd.print("Next clean in:");
+            lcd.setCursor(0, 1);
+            if (mins < 10) {
+                lcd.print("0");
+            }
+            lcd.print(mins);
+            lcd.print(":");
+            if (secs < 10) {
+                lcd.print("0");
+            }
+            lcd.print(secs);
+            lcd.print(" ");
+        }
+    }
+
+    updateBuzzer();
 }
 
 void loop() {
