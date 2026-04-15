@@ -185,19 +185,28 @@ void timer() {
         if (millis() - lastDisplayUpdate >= 1000 || lastDisplayUpdate == 0) {
             lastDisplayUpdate = millis();
 
-            // split remaining seconds into minutes and seconds
-            unsigned int mins = remaining / 60;
+            // split remaining seconds into hours, minutes, and seconds
+            unsigned int hrs = remaining / 3600;
+            unsigned int mins = (remaining % 3600) / 60;
             unsigned int secs = remaining % 60;
 
             // display countdown in MM:SS format
             lcd.setCursor(0, 0);
             lcd.print("Next clean in:");
             lcd.setCursor(0, 1);
+
+            if (hrs < 10) {
+                lcd.print("0");
+            }
+            lcd.print(hrs);
+            lcd.print(":");
+
             if (mins < 10) {
                 lcd.print("0");
             }
             lcd.print(mins);
             lcd.print(":");
+
             if (secs < 10) {
                 lcd.print("0");
             }
