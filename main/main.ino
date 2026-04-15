@@ -23,8 +23,46 @@ const unsigned long buzzInterval = 300; // ms
 unsigned long timerStart = 0;
 bool timerStarted = false;
 bool timerAlarm = false;
-const unsigned long timerDuration = 10000; // 5 mins in ms
+const unsigned long timerDuration = 10000; // 10 seconds (for testing)
 unsigned long lastDisplayUpdate = 0;
+
+// select mode screen
+void selectMode() {
+    mode = 0;
+    lastModeShown = -1;
+
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Select mode");
+    lcd.setCursor(0, 1);
+    lcd.print("B:refill G:timer");
+
+    while (mode == 0) {
+        if (digitalRead(BLUE_BUTTON) == HIGH) {
+            mode = 1;
+        }
+        else if (digitalRead(GREEN_BUTTON) == HIGH) {
+            mode = 2;
+        }
+    }
+
+    // clear lcd to prepare for tracking
+    lcd.clear();
+    delay(500);
+}
+
+// reset all variables when returning to mode select
+void resetState() {
+    refills_left = 2;
+    refillShown = false;
+    shouldBuzz = false;
+    buzzerOn = false;
+    noTone(BUZZER);
+    timerStarted = false;
+    timerAlarm = false;
+    lastDisplayUpdate = 0;
+    lastModeShown = -1;
+}
 
 // setup
 void setup() {
@@ -36,25 +74,9 @@ void setup() {
     // initalize lcd
     lcd.init();
     lcd.backlight();
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("Select mode");
-    lcd.setCursor(0, 1);
-    lcd.print("B:refill G:timer");
 
-    // user selects mode (refill or timer)
-    while (mode == 0) {
-        if (digitalRead(BLUE_BUTTON) == HIGH) {
-            mode = 1;
-        } 
-        else if (digitalRead(GREEN_BUTTON) == HIGH) {
-            mode = 2;
-        }
-    }
-
-    // clear lcd to prepare for tracking
-    lcd.clear();
     delay(500);
+    selectMode();
 
     Serial.begin(9600);
 }
@@ -118,10 +140,20 @@ void refill() {
 
     // turn off buzzer if user acknowledge buzzer
     if (digitalRead(GREEN_BUTTON) == HIGH && refills_left == 0 && refillShown) {
+        delay(200);
         refills_left = 2;
         refillShown = false;
         shouldBuzz = false;
         lastModeShown = -1;
+        return;
+    }
+
+    // green button goes back to mode select if buzzer is not going off
+    if (digitalRead(GREEN_BUTTON) == HIGH && !shouldBuzz) {
+        delay(200);
+        resetState();
+        selectMode();
+        return;
     }
 
     // constantly call this function
@@ -169,6 +201,14 @@ void timer() {
     // show countdown if no alarm
     else {
         shouldBuzz = false;
+
+        // green button goes back to mode select if buzzer is not going off
+        if (digitalRead(GREEN_BUTTON) == HIGH) {
+            delay(200);
+            resetState();
+            selectMode();
+            return;
+        }
 
         // clear lcd when first entering countdown display
         if (lastModeShown != 2) {
