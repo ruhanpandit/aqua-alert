@@ -26,7 +26,7 @@ bool timerAlarm = false;
 const unsigned long timerDuration = 10000; // 10 seconds (for testing)
 unsigned long lastDisplayUpdate = 0;
 
-// timer mode variables
+// snooze mode variables
 const unsigned long snoozeDuration = 5000;    // 5 seconds (for testing)
 bool isSnoozed = false;
 
