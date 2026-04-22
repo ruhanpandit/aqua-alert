@@ -3,8 +3,8 @@
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 // const variables for components
-const int BLUE_BUTTON = 2;
-const int GREEN_BUTTON = 3;
+const int LEFT_BUTTON = 3;
+const int RIGHT_BUTTON = 2;
 const int BUZZER = 5;
 
 // variables to prevent repeating of text on lcd
@@ -26,6 +26,10 @@ bool timerAlarm = false;
 const unsigned long timerDuration = 10000; // 10 seconds (for testing)
 unsigned long lastDisplayUpdate = 0;
 
+// timer mode variables
+const unsigned long snoozeDuration = 5000;    // 5 seconds (for testing)
+bool isSnoozed = false;
+
 // select mode screen
 void selectMode() {
     mode = 0;
@@ -35,13 +39,13 @@ void selectMode() {
     lcd.setCursor(0, 0);
     lcd.print("Select mode");
     lcd.setCursor(0, 1);
-    lcd.print("B:refill G:timer");
+    lcd.print("L:timer R:refill");
 
     while (mode == 0) {
-        if (digitalRead(BLUE_BUTTON) == HIGH) {
+        if (digitalRead(RIGHT_BUTTON) == HIGH) {
             mode = 1;
         }
-        else if (digitalRead(GREEN_BUTTON) == HIGH) {
+        else if (digitalRead(LEFT_BUTTON) == HIGH) {
             mode = 2;
         }
     }
@@ -62,13 +66,14 @@ void resetState() {
     timerAlarm = false;
     lastDisplayUpdate = 0;
     lastModeShown = -1;
+    isSnoozed = false;
 }
 
 // setup
 void setup() {
     // assign component pins
-    pinMode(BLUE_BUTTON, INPUT_PULLUP);
-    pinMode(GREEN_BUTTON, INPUT_PULLUP);
+    pinMode(RIGHT_BUTTON, INPUT_PULLUP);
+    pinMode(LEFT_BUTTON, INPUT_PULLUP);
     pinMode(BUZZER, OUTPUT);
 
     // initalize lcd
@@ -104,6 +109,7 @@ void updateBuzzer() {
     }
 }
 
+
 // refill mode
 void refill() {
     // print refills left
@@ -113,11 +119,12 @@ void refill() {
         lcd.print("Refills left:");
         lcd.setCursor(0, 1);
         lcd.print(refills_left);
+        lcd.print(" - reset:left");
         lastModeShown = 1;
     }
 
     // remove refills if blue button is pressed
-    if (refills_left > 0 && digitalRead(BLUE_BUTTON) == HIGH) {
+    if (refills_left > 0 && digitalRead(RIGHT_BUTTON) == HIGH) {
         delay(1000);
         refills_left--;
         lastModeShown = -1;
@@ -127,9 +134,9 @@ void refill() {
     if (refills_left == 0 && !refillShown) {
         lcd.clear();
         lcd.setCursor(0, 0);
-        lcd.print("CLEAN BOTTLE");
+        lcd.print("CLEAN BOTTLE!!");
         lcd.setCursor(0, 1);
-        lcd.print("Press green");
+        lcd.print("L:reset R:snooze");
         refillShown = true;
     }
 
@@ -139,7 +146,7 @@ void refill() {
     }
 
     // turn off buzzer if user acknowledge buzzer
-    if (digitalRead(GREEN_BUTTON) == HIGH && refills_left == 0 && refillShown) {
+    if (digitalRead(LEFT_BUTTON) == HIGH && refills_left == 0 && refillShown) {
         delay(1000);
         refills_left = 2;
         refillShown = false;
@@ -148,8 +155,20 @@ void refill() {
         return;
     }
 
+    // REFILL SNOOZE: set refills_left to 1
+    // Pressing right button during alarm gives 1 more refill before alarm triggers again
+    if (digitalRead(RIGHT_BUTTON) == HIGH && refills_left == 0 && refillShown) {
+        delay(300);  // debounce
+        refills_left = 1;
+        refillShown = false;
+        shouldBuzz = false;
+        lastModeShown = -1;
+        return;
+    }
+    // ===========================================================
+
     // green button goes back to mode select if buzzer is not going off
-    if (digitalRead(GREEN_BUTTON) == HIGH && !shouldBuzz && lastModeShown == 1) {
+    if (digitalRead(LEFT_BUTTON) == HIGH && !shouldBuzz && lastModeShown == 1) {
         delay(1000);
         resetState();
         selectMode();
@@ -168,8 +187,10 @@ void timer() {
         timerStarted = true;
     }
 
+    unsigned long activeDuration = isSnoozed ? snoozeDuration : timerDuration;
+
     // check if timer expired
-    if (!timerAlarm && (millis() - timerStart >= timerDuration)) {
+    if (!timerAlarm && (millis() - timerStart >= activeDuration)) {
         timerAlarm = true;
         lastModeShown = -1;
     }
@@ -182,17 +203,30 @@ void timer() {
         if (lastModeShown != 3) {
             lcd.clear();
             lcd.setCursor(0, 0);
-            lcd.print("CLEAN BOTTLE");
+            lcd.print("CLEAN BOTTLE!!");
             lcd.setCursor(0, 1);
-            lcd.print("Press green");
+            lcd.print("L:reset R:snooze");
             lastModeShown = 3;
         }
 
+        // TIMER SNOOZE: restart countdown with snoozeDuration
+        if (digitalRead(RIGHT_BUTTON) == HIGH) {
+            delay(300);  // debounce
+            isSnoozed = true;
+            timerAlarm = false;
+            shouldBuzz = false;
+            timerStart = millis();  // restart timer from now
+            lastModeShown = -1;
+            lastDisplayUpdate = 0;
+            return;
+        }
+
         // turn off buzzer and reset variables if user acknowledge buzzer
-        if (digitalRead(GREEN_BUTTON) == HIGH) {
+        if (digitalRead(LEFT_BUTTON) == HIGH) {
             delay(1000);
             shouldBuzz = false;
             timerAlarm = false;
+            isSnoozed = false;
             timerStart = millis();
             lastModeShown = -1;
             lastDisplayUpdate = 0;
@@ -203,7 +237,7 @@ void timer() {
         shouldBuzz = false;
 
         // green button goes back to mode select if buzzer is not going off
-        if (digitalRead(GREEN_BUTTON) == HIGH) {
+        if (digitalRead(LEFT_BUTTON) == HIGH) {
             delay(1000);
             resetState();
             selectMode();
@@ -219,7 +253,7 @@ void timer() {
 
         // calculate time elapsed
         unsigned long elapsed = millis() - timerStart;
-        unsigned long remaining = (timerDuration - elapsed) / 1000;
+        unsigned long remaining = (activeDuration - elapsed) / 1000;
 
         // refresh lcd every 1 second
         if (millis() - lastDisplayUpdate >= 1000 || lastDisplayUpdate == 0) {
@@ -232,15 +266,16 @@ void timer() {
 
             // display countdown in MM:SS format
             lcd.setCursor(0, 0);
+            /*
             lcd.print("Next clean in:");
             lcd.setCursor(0, 1);
+            */
 
             if (hrs < 10) {
                 lcd.print("0");
             }
             lcd.print(hrs);
             lcd.print(":");
-
             if (mins < 10) {
                 lcd.print("0");
             }
@@ -252,6 +287,8 @@ void timer() {
             }
             lcd.print(secs);
             lcd.print(" ");
+            lcd.setCursor(0, 1);
+            lcd.print("reset:left");
         }
     }
 
